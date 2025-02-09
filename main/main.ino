@@ -7,7 +7,11 @@ TFT_eSPI tft = TFT_eSPI();
 #include "NotoSansBold36.h"
 #define AA_FONT_SMALL NotoSansBold15
 #define AA_FONT_LARGE NotoSansBold36
+
+
 #define BUTTON_PIN 22
+#define buzzer 23
+#define POT_PIN   34
 
 //// Touchscreen pins
 //#define XPT2046_IRQ 36   // T_IRQ
@@ -33,12 +37,18 @@ unsigned long previousMillis = 0;
 void setup() {
   Serial.begin(115200);
   pinMode(BUTTON_PIN, INPUT_PULLUP);
+  pinMode(buzzer, OUTPUT);  // Buzzer pinini çıkış olarak ayarla
+  // TFT ekran arka ışığı pinini çıkış olarak ayarla
+  pinMode(TFT_BL, OUTPUT);
+
+  // Potansiyometreyi okuma pinini giriş olarak ayarla
+  pinMode(POT_PIN, INPUT);
 
   tft.begin();
   tft.setRotation(3);
-  tft.invertDisplay(true);
-  tft.fillScreen(TFT_WHITE);
-  tft.setTextColor(TFT_BLACK, TFT_WHITE);
+  tft.invertDisplay(false);
+  tft.fillScreen(TFT_BLACK);
+  tft.setTextColor(TFT_WHITE, TFT_BLACK);
 
   //  Serial.println("Başlık giriniz: ");
   //  while (Serial.available() == 0) {}
@@ -51,6 +61,7 @@ void setup() {
 
 void loop() {
   checkButtonPress();
+  checkBL();
 
   if (isRunning) {
     unsigned long currentMillis = millis();
@@ -82,8 +93,8 @@ void checkButtonPress() {
 
     if (pressDuration >= 2000) {
       isRunning = !isRunning;
-    } else {
-      isRunning = false;
+      drawStaticScreen();
+      beepBuzzer(50, 50, 2);
     }
     updateTimerDisplay(true);  // Duraklama veya başlatmada ekranı güncelle
   }
@@ -103,43 +114,35 @@ void switchMode() {
 
 // **Statik Bilgileri Çiz (Başlık ve Mod)**
 void drawStaticScreen() {
-  tft.fillScreen(TFT_WHITE);
+  tft.fillScreen(TFT_BLACK);
   tft.loadFont(AA_FONT_LARGE);
+
+
   int textWidtTitle = tft.textWidth(title);
   int x1 = (tft.width() - textWidtTitle) / 2;
   tft.setCursor(x1, 20);
-  tft.setTextColor(TFT_BLACK);
+  tft.setTextColor(TFT_WHITE);
   tft.print(title);
 
-  int textWidthWork = tft.textWidth("Work Time");
-  int x2 = (tft.width() - textWidthWork) / 2;
-  tft.setCursor(x2, 80);
-  tft.setTextColor(isWorkSession ? TFT_GREEN : TFT_BLUE);
-  tft.print(isWorkSession ? "Work Time" : "Break Time");
+  if (isWorkSession) {
+    int textWidthWork = tft.textWidth("Work Time");
+    int x2 = (tft.width() - textWidthWork) / 2;
+    if (isRunning) {
+      tft.setTextColor(TFT_GREEN);
+    }
+    else {
+      tft.setTextColor(TFT_RED);
+    }
+    tft.setCursor(x2, 80);
+    tft.print("Work Time");
+  } else {
+    int textWidthWork = tft.textWidth("Break Time");
+    int x2 = (tft.width() - textWidthWork) / 2;
+    tft.setTextColor(TFT_BLUE);
+    tft.setCursor(x2, 80);
+    tft.print("Break Time");
+  }
 }
-
-// **Sadece Süreyi Güncelle**
-//void updateTimerDisplay(bool forceUpdate) {
-//  int minutes = (remainingTime / 1000) / 60;
-//  int seconds = (remainingTime / 1000) % 60;
-//
-//  char newTimeStr[6];
-//  tft.loadFont(AA_FONT_LARGE);
-//  snprintf(newTimeStr, sizeof(newTimeStr), "%02d:%02d", minutes, seconds);
-//
-//  if (forceUpdate || strcmp(newTimeStr, previousTimeStr) != 0) {
-//    for (int i = 0; i < 5; i++) {
-//      if (forceUpdate || newTimeStr[i] != previousTimeStr[i]) {
-//        tft.setTextColor(TFT_WHITE, TFT_BLACK);
-//        tft.drawChar(previousTimeStr[i], 140 + (i * 20), 160);
-//
-//        tft.setTextColor(TFT_BLACK, TFT_BLACK);
-//        tft.drawChar(newTimeStr[i], 140 + (i * 20), 160);
-//      }
-//    }
-//    strcpy(previousTimeStr, newTimeStr);
-//  }
-//}
 
 void updateTimerDisplay(bool forceUpdate) {
   int minutes = (remainingTime / 1000) / 60;
@@ -160,13 +163,37 @@ void updateTimerDisplay(bool forceUpdate) {
 
   if (forceUpdate || strcmp(newTimeStr, previousTimeStr) != 0) {
     // Eski dakikayı silmek için, önce eski yazının olduğu bölgeyi siyah yap
-    tft.fillRect(x, y, textWidth, textHeight, TFT_WHITE);  // Eski yazıyı temizle
+    tft.fillRect(x, y, textWidth, textHeight, TFT_BLACK);  // Eski yazıyı temizle
 
     // Yeni dakikayı büyük font ile yaz
-    tft.setTextColor(TFT_BLACK, TFT_WHITE);  // Beyaz yazı, siyah arka plan
+    tft.setTextColor(TFT_WHITE, TFT_BLACK);  // Beyaz yazı, siyah arka plan
     tft.drawString(newTimeStr, x, y);  // Yeni dakikayı yaz
 
     // Yeni dakikayı kaydet
     strcpy(previousTimeStr, newTimeStr);
   }
+}
+
+void beepBuzzer(int beepTime, int delayTime, int numBeeps) {
+  Serial.println("Buzzer BEEP");
+  for (int i = 0; i < numBeeps; i++) {
+    digitalWrite(buzzer, HIGH);
+    delay(beepTime);
+    digitalWrite(buzzer, LOW);
+    delay(delayTime);
+  }
+}
+
+void checkBL() {
+  // Potansiyometreden gelen değeri oku
+  int potValue = analogRead(POT_PIN);
+
+  // Potansiyometreden gelen değeri PWM için uygun aralığa dönüştür
+  // Potansiyometre 0-1023 arasında bir değer gönderiyor, biz bunu 0-255 arasında bir PWM değerine dönüştüreceğiz.
+  int pwmValue = map(potValue, 0, 4095, 0, 255);
+
+  // PWM sinyali göndererek arka ışığı ayarla
+  analogWrite(TFT_BL, pwmValue);
+
+  delay(400);
 }
