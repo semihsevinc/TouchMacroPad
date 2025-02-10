@@ -1,28 +1,21 @@
 #include <SPI.h>
 #include <TFT_eSPI.h>
-
 TFT_eSPI tft = TFT_eSPI();
-//#include "Free_Fonts.h"  // TFT_eSPI'de ücretsiz fontlar
+
+#define POMODORO_ON_OFF_BUTTON 22  // Pomodoro başlat/durdur butonu
+#define CHANGE_MOD_BUTTON 18  // Mod değiştirme butonu
+#define BUZZER 23
+#define BACKLIGHT_PIN 34
+
+#include "utils.h"
+#include "pomodoro_mode.h"
+#include "to_do_list_mode.h"
+
 #include "NotoSansBold15.h"
 #include "NotoSansBold36.h"
 #define AA_FONT_SMALL NotoSansBold15
 #define AA_FONT_LARGE NotoSansBold36
 
-
-#define BUTTON_PIN 22
-#define buzzer 23
-#define POT_PIN   34
-
-//// Touchscreen pins
-//#define XPT2046_IRQ 36   // T_IRQ
-//#define XPT2046_MOSI 32  // T_DIN
-//#define XPT2046_MISO 39  // T_OUT
-//#define XPT2046_CLK 25   // T_CLK
-//#define XPT2046_CS 33    // T_CS
-
-//#define SCREEN_WIDTH 480
-//#define SCREEN_HEIGHT 320
-#define FONT_SIZE 2
 
 String title = "Pomodoro Timer";  // Varsayılan başlık
 unsigned long lastButtonPress = 0;
@@ -32,17 +25,15 @@ unsigned long remainingTime = 25 * 60 * 1000;  // 25 dakika çalışma süresi
 char previousTimeStr[6];   // Önceki süreyi tutan string
 unsigned long previousMillis = 0;
 
-
-
 void setup() {
   Serial.begin(115200);
-  pinMode(BUTTON_PIN, INPUT_PULLUP);
-  pinMode(buzzer, OUTPUT);  // Buzzer pinini çıkış olarak ayarla
+  pinMode(POMODORO_ON_OFF_BUTTON, INPUT_PULLUP);
+  pinMode(BUZZER, OUTPUT);  // Buzzer pinini çıkış olarak ayarla
   // TFT ekran arka ışığı pinini çıkış olarak ayarla
   pinMode(TFT_BL, OUTPUT);
 
   // Potansiyometreyi okuma pinini giriş olarak ayarla
-  pinMode(POT_PIN, INPUT);
+  pinMode(BACKLIGHT_PIN, INPUT);
 
   tft.begin();
   tft.setRotation(3);
@@ -50,12 +41,7 @@ void setup() {
   tft.fillScreen(TFT_BLACK);
   tft.setTextColor(TFT_WHITE, TFT_BLACK);
 
-  //  Serial.println("Başlık giriniz: ");
-  //  while (Serial.available() == 0) {}
-  //  title = Serial.readStringUntil('\n');
-  //  title.trim();
-
-  drawStaticScreen();  // Başlık ve mod bilgilerini sadece 1 kez çiz
+  drawStaticScreen();
   updateTimerDisplay(true);  // İlk süreyi yazdır
 }
 
@@ -82,7 +68,7 @@ void checkButtonPress() {
   static bool lastButtonState = HIGH;
   static unsigned long pressStartTime = 0;
 
-  buttonState = digitalRead(BUTTON_PIN);
+  buttonState = digitalRead(POMODORO_ON_OFF_BUTTON);
 
   if (buttonState == LOW && lastButtonState == HIGH) {
     pressStartTime = millis();
@@ -91,7 +77,7 @@ void checkButtonPress() {
   if (buttonState == HIGH && lastButtonState == LOW) {
     unsigned long pressDuration = millis() - pressStartTime;
 
-    if (pressDuration >= 2000) {
+    if (pressDuration >= 1000) {
       isRunning = !isRunning;
       drawStaticScreen();
       beepBuzzer(50, 50, 2);
@@ -172,28 +158,4 @@ void updateTimerDisplay(bool forceUpdate) {
     // Yeni dakikayı kaydet
     strcpy(previousTimeStr, newTimeStr);
   }
-}
-
-void beepBuzzer(int beepTime, int delayTime, int numBeeps) {
-  Serial.println("Buzzer BEEP");
-  for (int i = 0; i < numBeeps; i++) {
-    digitalWrite(buzzer, HIGH);
-    delay(beepTime);
-    digitalWrite(buzzer, LOW);
-    delay(delayTime);
-  }
-}
-
-void checkBL() {
-  // Potansiyometreden gelen değeri oku
-  int potValue = analogRead(POT_PIN);
-
-  // Potansiyometreden gelen değeri PWM için uygun aralığa dönüştür
-  // Potansiyometre 0-1023 arasında bir değer gönderiyor, biz bunu 0-255 arasında bir PWM değerine dönüştüreceğiz.
-  int pwmValue = map(potValue, 0, 4095, 0, 255);
-
-  // PWM sinyali göndererek arka ışığı ayarla
-  analogWrite(TFT_BL, pwmValue);
-
-  delay(400);
 }
