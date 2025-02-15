@@ -4,10 +4,12 @@ void pomodoroParameters (String workSession, int sessionTime) {
   int text_startPos_x = 5;
   int pomodoroTextWidth = tft.textWidth(workSession);
   int barPosition_x = text_startPos_x + pomodoroTextWidth;
-  int xdk = barPosition_x + 5 + tft.textWidth(String(minutes)) + tft.textWidth(String(" "));
-  int whiteBar_x = xdk + tft.textWidth(String("dk.")) + 4;
+  int xdk = barPosition_x + tft.textWidth(String(minutes)) + tft.textWidth(String(" "));
+  int whiteBar_x = tft.textWidth(String(minutes)) + tft.textWidth(String(" ")) + tft.textWidth(String(" dk.")) + 4;
+  Serial.println(whiteBar_x);
   int barWidth = map(minutes, 0, sessionTime, whiteBar_x, 366);
   tft.setCursor(text_startPos_x, 296);
+  tft.fillRect(text_startPos_x, 296, pomodoroTextWidth, 20, TFT_BLACK);
   tft.print(workSession);
 
   tft.drawRect(barPosition_x, 290, 372, 24, TFT_WHITE);
@@ -18,17 +20,19 @@ void pomodoroParameters (String workSession, int sessionTime) {
   tft.setTextColor(TFT_BLACK);
   tft.print(minutes);
   tft.setCursor(xdk, 296);
-  tft.print("dk.");
+  tft.print(" dk.");
 }
-
 
 void showPomodoroTimer(bool forceUpdate) {
   tft.loadFont(AA_FONT_SMALL);
-  char newTimeStr[3];  // "99" şeklinde iki basamaklı dakika formatı
+  char newTimeStr[3];
   snprintf(newTimeStr, sizeof(newTimeStr), "%02d", minutes);
+  Serial.print("newTimeStr: ");
+  Serial.println(newTimeStr);
+  Serial.print("previousTimeStr: ");
+  Serial.println(previousTimeStr);
   if (forceUpdate || strcmp(newTimeStr, previousTimeStr) != 0) {
     if (isWorkSession) {
-
       if (isRunning) {
         tft.setTextColor(TFT_GREEN);
       }
