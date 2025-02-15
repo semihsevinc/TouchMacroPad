@@ -7,23 +7,27 @@ TFT_eSPI tft = TFT_eSPI();
 #define BUZZER 23
 #define BACKLIGHT_PIN 34
 
-#include "utils.h"
-#include "pomodoro_mode.h"
-#include "to_do_list_mode.h"
+
+String title = "Pomodoro Timer";  // Varsayılan başlık
+unsigned long lastButtonPress = 0;
+bool isRunning = false;
+bool isWorkSession = true;
+int workTime = 25;
+int breakTime = 5;
+unsigned long remainingTime = workTime * 60 * 1000;  // çalışma süresi
+int minutes = (remainingTime / 1000) / 60;
+char previousTimeStr[6];   // Önceki süreyi tutan string
+unsigned long previousMillis = 0;
+
 
 #include "NotoSansBold15.h"
 #include "NotoSansBold36.h"
 #define AA_FONT_SMALL NotoSansBold15
 #define AA_FONT_LARGE NotoSansBold36
 
-
-String title = "Pomodoro Timer";  // Varsayılan başlık
-unsigned long lastButtonPress = 0;
-bool isRunning = false;
-bool isWorkSession = true;
-unsigned long remainingTime = 25 * 60 * 1000;  // 25 dakika çalışma süresi
-char previousTimeStr[6];   // Önceki süreyi tutan string
-unsigned long previousMillis = 0;
+#include "utils.h"
+#include "pomodoro_mode.h"
+#include "to_do_list_mode.h"
 
 void setup() {
   Serial.begin(115200);
@@ -41,8 +45,8 @@ void setup() {
   tft.fillScreen(TFT_BLACK);
   tft.setTextColor(TFT_WHITE, TFT_BLACK);
 
-  drawStaticScreen();
-  updateTimerDisplay(true);  // İlk süreyi yazdır
+  drawScreen();
+  showPomodoroTimer(true);  // İlk süreyi yazdır
 }
 
 void loop() {
@@ -58,7 +62,7 @@ void loop() {
       } else {
         switchMode();
       }
-      updateTimerDisplay(false);  // Sadece süreyi güncelle
+      showPomodoroTimer(false);  // Sadece süreyi güncelle
     }
   }
 }
@@ -79,10 +83,10 @@ void checkButtonPress() {
 
     if (pressDuration >= 1000) {
       isRunning = !isRunning;
-      drawStaticScreen();
+      drawScreen();
       beepBuzzer(50, 50, 2);
     }
-    updateTimerDisplay(true);  // Duraklama veya başlatmada ekranı güncelle
+    showPomodoroTimer(true);  // Duraklama veya başlatmada ekranı güncelle
   }
 
   lastButtonState = buttonState;
@@ -92,70 +96,41 @@ void switchMode() {
   isWorkSession = !isWorkSession;
   isRunning = true;
 
-  remainingTime = isWorkSession ? 25 * 60 * 1000 : 5 * 60 * 1000;
+  remainingTime = isWorkSession ? workTime * 60 * 1000 : breakTime * 60 * 1000;
 
-  drawStaticScreen();  // Yeni mod için başlığı ve bilgileri yeniden çiz
-  updateTimerDisplay(true);
+  drawScreen();  // Yeni mod için başlığı ve bilgileri yeniden çiz
+  showPomodoroTimer(true);
 }
 
 // **Statik Bilgileri Çiz (Başlık ve Mod)**
-void drawStaticScreen() {
-  tft.fillScreen(TFT_BLACK);
-  tft.loadFont(AA_FONT_LARGE);
-
-
-  int textWidtTitle = tft.textWidth(title);
-  int x1 = (tft.width() - textWidtTitle) / 2;
-  tft.setCursor(x1, 20);
-  tft.setTextColor(TFT_WHITE);
-  tft.print(title);
-
-  if (isWorkSession) {
-    int textWidthWork = tft.textWidth("Work Time");
-    int x2 = (tft.width() - textWidthWork) / 2;
-    if (isRunning) {
-      tft.setTextColor(TFT_GREEN);
-    }
-    else {
-      tft.setTextColor(TFT_RED);
-    }
-    tft.setCursor(x2, 80);
-    tft.print("Work Time");
-  } else {
-    int textWidthWork = tft.textWidth("Break Time");
-    int x2 = (tft.width() - textWidthWork) / 2;
-    tft.setTextColor(TFT_BLUE);
-    tft.setCursor(x2, 80);
-    tft.print("Break Time");
-  }
-}
-
-void updateTimerDisplay(bool forceUpdate) {
-  int minutes = (remainingTime / 1000) / 60;
-
-  char newTimeStr[3];  // "99" şeklinde iki basamaklı dakika formatı
-  snprintf(newTimeStr, sizeof(newTimeStr), "%02d", minutes);
-
-  // Font büyüklüğünü ayarla
-  tft.loadFont(AA_FONT_LARGE);
-
-  // Yeni zamanın genişliğini hesapla
-  int textWidth = tft.textWidth(newTimeStr);
-  int textHeight = tft.fontHeight();
-
-  // Ekranı ortalayacak şekilde X ve Y koordinatlarını hesapla
-  int x = (tft.width() - textWidth) / 2;
-  int y = (tft.height() - textHeight) / 2;
-
-  if (forceUpdate || strcmp(newTimeStr, previousTimeStr) != 0) {
-    // Eski dakikayı silmek için, önce eski yazının olduğu bölgeyi siyah yap
-    tft.fillRect(x, y, textWidth, textHeight, TFT_BLACK);  // Eski yazıyı temizle
-
-    // Yeni dakikayı büyük font ile yaz
-    tft.setTextColor(TFT_WHITE, TFT_BLACK);  // Beyaz yazı, siyah arka plan
-    tft.drawString(newTimeStr, x, y);  // Yeni dakikayı yaz
-
-    // Yeni dakikayı kaydet
-    strcpy(previousTimeStr, newTimeStr);
-  }
+void drawScreen() {
+  //  tft.fillScreen(TFT_BLACK);
+  //  tft.loadFont(AA_FONT_LARGE);
+  //
+  //
+  //  int textWidtTitle = tft.textWidth(title);
+  //  int x1 = (tft.width() - textWidtTitle) / 2;
+  //  tft.setCursor(x1, 20);
+  //  tft.setTextColor(TFT_WHITE);
+  //  tft.print(title);
+  showList();
+  showPomodoroTimer(false);
+  //  if (isWorkSession) {
+  //    int textWidthWork = tft.textWidth("Work Time");
+  //    int x2 = (tft.width() - textWidthWork) / 2;
+  //    if (isRunning) {
+  //      tft.setTextColor(TFT_GREEN);
+  //    }
+  //    else {
+  //      tft.setTextColor(TFT_RED);
+  //    }
+  //    tft.setCursor(x2, 80);
+  //    tft.print("Work Time");
+  //  } else {
+  //    int textWidthWork = tft.textWidth("Break Time");
+  //    int x2 = (tft.width() - textWidthWork) / 2;
+  //    tft.setTextColor(TFT_BLUE);
+  //    tft.setCursor(x2, 80);
+  //    tft.print("Break Time");
+  //  }
 }
