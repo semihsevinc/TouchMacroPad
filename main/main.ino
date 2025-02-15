@@ -6,26 +6,28 @@ TFT_eSPI tft = TFT_eSPI();
 #define CHANGE_MOD_BUTTON 18  // Mod değiştirme butonu
 #define BUZZER 23
 #define BACKLIGHT_PIN 34
-
+#include "utils.h"
 
 String title = "Pomodoro Timer";  // Varsayılan başlık
 unsigned long lastButtonPress = 0;
 bool isRunning = false;
 bool isWorkSession = true;
-int workTime = 25;
-int breakTime = 5;
+int workTime = 2;
+int breakTime = 1;
 unsigned long remainingTime = workTime * 60 * 1000;  // çalışma süresi
 int minutes = (remainingTime / 1000) / 60;
+int previousMinute = 0;
 char previousTimeStr[6];   // Önceki süreyi tutan string
 unsigned long previousMillis = 0;
+bool cont = true;
 
 
 #include "NotoSansBold15.h"
-#include "NotoSansBold36.h"
+#include "NotoSansBold24.h"
 #define AA_FONT_SMALL NotoSansBold15
-#define AA_FONT_LARGE NotoSansBold36
+#define AA_FONT_LARGE NotoSansBold24
 
-#include "utils.h"
+
 #include "pomodoro_mode.h"
 #include "to_do_list_mode.h"
 
@@ -45,8 +47,16 @@ void setup() {
   tft.fillScreen(TFT_BLACK);
   tft.setTextColor(TFT_WHITE, TFT_BLACK);
 
-  drawScreen();
-  showPomodoroTimer(true);  // İlk süreyi yazdır
+  //  drawScreen();
+  showList();
+  Serial.println("i1");
+  showPomodoroTimer(true);
+  Serial.println("i2");
+  drawTable();
+  Serial.println("i3");
+
+
+
 }
 
 void loop() {
@@ -62,7 +72,18 @@ void loop() {
       } else {
         switchMode();
       }
-      showPomodoroTimer(false);  // Sadece süreyi güncelle
+      minutes = (remainingTime / 1000) / 60;
+      Serial.print("remainingTime: ");
+      Serial.println(remainingTime);
+      Serial.print("previousMinute: ");
+      Serial.println(previousMinute);
+      Serial.print("minutes: ");
+      Serial.println(minutes);
+      if (previousMinute != minutes) {
+        showPomodoroTimer(true);  // Sadece süreyi güncelle
+        drawTable();
+        previousMinute = minutes;
+      }
     }
   }
 }
@@ -81,7 +102,7 @@ void checkButtonPress() {
   if (buttonState == HIGH && lastButtonState == LOW) {
     unsigned long pressDuration = millis() - pressStartTime;
 
-    if (pressDuration >= 1000) {
+    if (pressDuration >= 10) {
       isRunning = !isRunning;
       drawScreen();
       beepBuzzer(50, 50, 2);
@@ -95,42 +116,16 @@ void checkButtonPress() {
 void switchMode() {
   isWorkSession = !isWorkSession;
   isRunning = true;
-
   remainingTime = isWorkSession ? workTime * 60 * 1000 : breakTime * 60 * 1000;
-
-  drawScreen();  // Yeni mod için başlığı ve bilgileri yeniden çiz
+  showList();
+//  drawTable();
   showPomodoroTimer(true);
 }
 
-// **Statik Bilgileri Çiz (Başlık ve Mod)**
 void drawScreen() {
-  //  tft.fillScreen(TFT_BLACK);
-  //  tft.loadFont(AA_FONT_LARGE);
-  //
-  //
-  //  int textWidtTitle = tft.textWidth(title);
-  //  int x1 = (tft.width() - textWidtTitle) / 2;
-  //  tft.setCursor(x1, 20);
-  //  tft.setTextColor(TFT_WHITE);
-  //  tft.print(title);
   showList();
+
   showPomodoroTimer(false);
-  //  if (isWorkSession) {
-  //    int textWidthWork = tft.textWidth("Work Time");
-  //    int x2 = (tft.width() - textWidthWork) / 2;
-  //    if (isRunning) {
-  //      tft.setTextColor(TFT_GREEN);
-  //    }
-  //    else {
-  //      tft.setTextColor(TFT_RED);
-  //    }
-  //    tft.setCursor(x2, 80);
-  //    tft.print("Work Time");
-  //  } else {
-  //    int textWidthWork = tft.textWidth("Break Time");
-  //    int x2 = (tft.width() - textWidthWork) / 2;
-  //    tft.setTextColor(TFT_BLUE);
-  //    tft.setCursor(x2, 80);
-  //    tft.print("Break Time");
-  //  }
+  drawTable();
+
 }
